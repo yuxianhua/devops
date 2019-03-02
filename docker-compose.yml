@@ -1,0 +1,129 @@
+version: '2'
+
+services:
+  nginx: #nginx服务
+      image: nginx:latest
+      ports: #抛出的端口(主机)
+          - "80:80"
+          - "443:443"
+      volumes:
+          - /wwwroot/docker/data/wwwroot/:/home/www #项目目录
+          - /wwwroot/docker/data/nginx/conf:/etc/nginx/conf.d #配置文件映射
+      container_name: nginx-service #容器名称
+      networks:
+          app_net:
+              ipv4_address: 172.16.238.11
+      hostname: nginx
+      mem_limit: 512m
+  fpm: #php的fpm服务
+      #image: php:7.1
+      build: /home/compose-lnmp/fpm
+      volumes:
+          - /wwwroot/docker/data/wwwroot:/home/www #项目目录
+          #- /wwwroot/docker/data/fpm/conf/php-fpm.d:/usr/local/php/etc/php-fpm.d #配置文件映射
+          - /wwwroot/docker/data/fpm/conf/etc:/usr/local/etc/php #配置文件映射
+      ports: #抛出的端口(主机)
+          - "9000:9000"
+      container_name: fpm-service #容器名称
+      networks:
+          app_net:
+              ipv4_address: 172.16.238.12
+      hostname: php
+      mem_limit: 512m
+  redis: #redis缓存数据库服务
+      image: redis #镜像
+      ports:
+          - "6379:6379" #抛出的端口(主机)
+      command: redis-server 
+      environment:
+          - REDIS=1
+          - USER=redis #用户
+          - REDIS_PASSWORD=123456 #密码
+      volumes:
+          - /wwwroot/docker/data/redis/conf:/usr/local/redis #配置文件映射
+          - /wwwroot/docker/data/redis/log/redis:/var/log/redis:rw
+      container_name: redis-service #容器名称
+      networks:
+          app_net:
+            ipv4_address: 172.16.238.13
+      hostname: redis
+      mem_limit: 512m
+  mysql: #mysql数据库
+      image: mysql:5.7 #镜像
+      ports: #抛出的端口(主机)
+          - "3306:3306"
+      environment:
+          - MYSQL_ROOT_PASSWORD=123456 #root用户密码
+          - MYSQL_DATABASE=dockercnym #默认创建数据库
+          - MYSQL_USER=slaveUser #创建用于主从复制的用户
+          - MYSQL_PASSWORD=123456 #创建用于主从复制的用户的密码
+      volumes:
+          - /wwwroot/docker/data/mysql/master/data:/var/lib/mysql #数据永久挂载到宿主机
+      container_name: mysql-service #容器名称
+      networks:
+          app_net:
+            ipv4_address: 172.16.238.14
+      hostname: mastermysql
+      mem_limit: 512M
+
+#  mastermysql: #mysql数据库主服务
+#      image: mysql:5.7 #镜像
+#      ports: #抛出的端口(主机)
+#          - "33061:3306"
+#      environment:
+#          - MYSQL_ROOT_PASSWORD=123456 #root用户密码
+#          - MYSQL_DATABASE=dockercnym #默认创建数据库
+#          - MYSQL_USER=slaveUser #创建用于主从复制的用户
+#          - MYSQL_PASSWORD=123456 #创建用于主从复制的用户的密码
+#      volumes:
+#          - /wwwroot/docker/data/mysql/master/data:/var/lib/mysql #数据永久挂载到宿主机
+#          - /wwwroot/docker/data/mysql/master:/etc/mysql #配置文件映射
+#      container_name: master-mysql-service #容器名称
+#      networks:
+#          app_net:
+#            ipv4_address: 172.16.238.21
+#      hostname: mastermysql
+#      mem_limit: 512M
+#  slavemysql: #mysql数据库从服务
+#      image: mysql:5.7 #镜像
+#      ports:
+#          - "33062:3306" #抛出的端口(主机)
+#      environment:
+#          - MYSQL_ROOT_PASSWORD=123456 #root用户密码
+#          - MYSQL_DATABASE=dockercnym #默认创建数据库
+#      volumes:
+#          - /wwwroot/docker/data/mysql/slave/data:/var/lib/mysql #数据永久挂载到宿主机
+#          - /wwwroot/docker/data/mysql/slave:/etc/mysql #配置文件映射
+#      container_name: slave-mysql-service #容器名称
+#      networks:
+#          app_net:
+#            ipv4_address: 172.16.238.22
+#      hostname: slavemysql
+#      mem_limit: 512M
+  swoft:
+    image: swoft:v1.0
+    ports:
+      - "80:80"
+    volumes:
+      - /wwwroot/swoft/:/var/www/swoft
+    container_name: swoft-server #容器名称
+    stdin_open: true
+    tty: true
+    privileged: true
+    entrypoint: ["php", "/var/www/swoft/bin/swoft", "start"]
+    depends_on:
+#      - mastermysql
+#      - slavemysql
+      - mysql
+      - redis
+    networks:
+      app_net:
+        ipv4_address: 172.16.238.10
+
+networks:
+  app_net:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.16.238.0/24
