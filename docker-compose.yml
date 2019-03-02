@@ -16,8 +16,7 @@ services:
       hostname: nginx
       mem_limit: 512m
   fpm: #php的fpm服务
-      #image: php:7.1
-      build: /home/compose-lnmp/fpm
+      build: ./fpm
       volumes:
           - /wwwroot/docker/data/wwwroot:/home/www #项目目录
       ports: #抛出的端口(主机)
